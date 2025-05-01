@@ -1,15 +1,13 @@
 import os
 import discord
 from discord import app_commands
-from dotenv import load_dotenv
 from flask import Flask
 from threading import Thread
 import json
 
-# --- Load environment variables from .env using absolute path ---
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
-TOKEN = os.getenv("TOKEN")
-print("Loaded token:", repr(TOKEN))  # Debug print to verify loading
+# --- Get token directly from Railway shared variable ---
+TOKEN = os.environ["TOKEN"]
+print("Loaded token:", repr(TOKEN))  # Debug print
 
 # --- Flask server setup (keep-alive for Replit etc.) ---
 app = Flask(__name__)
