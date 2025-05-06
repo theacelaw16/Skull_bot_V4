@@ -27,6 +27,7 @@ tree = app_commands.CommandTree(client)
 WHITELIST_FILE = "skull_whitelist.json"
 TRIGGERS_FILE = "skull_triggers.json"
 BLOCKLIST_FILE = "skull_blocklist.json"
+LEADERBOARD_FILE = "skull_leaderboard.json"
 
 # --- Load whitelist ---
 if os.path.exists(WHITELIST_FILE):
@@ -49,6 +50,13 @@ if os.path.exists(BLOCKLIST_FILE):
 else:
     skull_blocklist = {}
 
+# --- Load leaderboard ---
+if os.path.exists(LEADERBOARD_FILE):
+    with open(LEADERBOARD_FILE, 'r') as f:
+        skull_leaderboard = json.load(f)
+else:
+    skull_leaderboard = {}
+
 # --- Save functions ---
 def save_whitelist():
     with open(WHITELIST_FILE, 'w') as f:
@@ -61,6 +69,10 @@ def save_triggers():
 def save_blocklist():
     with open(BLOCKLIST_FILE, 'w') as f:
         json.dump(skull_blocklist, f)
+
+def save_leaderboard():
+    with open(LEADERBOARD_FILE, 'w') as f:
+        json.dump(skull_leaderboard, f)
 
 # --- Discord Events ---
 @client.event
@@ -86,6 +98,22 @@ async def on_message(message):
     triggers = skull_triggers.get(gid, [])
     if any(word in message.content.lower() for word in triggers):
         await message.add_reaction("\U0001F480")
+        user_stats = skull_leaderboard.setdefault(gid, {}).setdefault(uid, {"skulls": 0, "golds": 0})
+        user_stats["skulls"] += 1
+        save_leaderboard()
+
+@client.event
+async def on_raw_reaction_add(payload):
+    if str(payload.emoji.id) == "1369444094887202948":
+        gid = str(payload.guild_id)
+        uid = str(payload.user_id)
+
+        if uid == str(client.user.id):
+            return
+
+        user_stats = skull_leaderboard.setdefault(gid, {}).setdefault(uid, {"skulls": 0, "golds": 0})
+        user_stats["golds"] += 1
+        save_leaderboard()
 
 # --- Slash Commands ---
 @tree.command(name="skullsetup", description="Enable skull reactions in this server")
@@ -93,7 +121,7 @@ async def skullsetup_command(interaction: discord.Interaction):
     gid = str(interaction.guild.id)
     skull_whitelist[gid] = True
     save_whitelist()
-    await interaction.response.send_message("💀 Skull reactions are now active in this server!", ephemeral=True)
+    await interaction.response.send_message("\U0001F480 Skull reactions are now active in this server!", ephemeral=True)
 
 @tree.command(name="addskull", description="Add a new skull trigger word")
 @app_commands.describe(trigger="The word that triggers skull reaction")
@@ -103,7 +131,7 @@ async def addskull_command(interaction: discord.Interaction, trigger: str):
         skull_triggers[gid] = []
     skull_triggers[gid].append(trigger.lower())
     save_triggers()
-    await interaction.response.send_message(f"💀 Trigger added: `{trigger}`", ephemeral=True)
+    await interaction.response.send_message(f"\U0001F480 Trigger added: `{trigger}`", ephemeral=True)
 
 @tree.command(name="skullwhitelist", description="Show all skull trigger words for this server")
 async def skullwhitelist_command(interaction: discord.Interaction):
@@ -160,6 +188,21 @@ async def skullblockedusers_command(interaction: discord.Interaction):
             user = await client.fetch_user(int(uid))
             mentions.append(user.mention)
         await interaction.response.send_message("Blocked users:\n" + "\n".join(mentions), ephemeral=True)
+
+@tree.command(name="skullleaderboard", description="Show the leaderboard for skull and golden skull reactions")
+async def skullleaderboard_command(interaction: discord.Interaction):
+    gid = str(interaction.guild.id)
+    leaderboard = skull_leaderboard.get(gid, {})
+    if not leaderboard:
+        await interaction.response.send_message("No skull reactions recorded yet.", ephemeral=True)
+        return
+
+    lines = []
+    for uid, stats in sorted(leaderboard.items(), key=lambda item: item[1]["skulls"] + item[1]["golds"], reverse=True):
+        user = await client.fetch_user(int(uid))
+        lines.append(f"{user.name}: {stats['skulls']} skulls, {stats['golds']} golden skulls")
+
+    await interaction.response.send_message("**Skull Leaderboard:**\n" + "\n".join(lines), ephemeral=True)
 
 # --- Get token at runtime ---
 def get_token():
