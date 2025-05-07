@@ -197,12 +197,12 @@ async def skullleaderboard_command(interaction: discord.Interaction):
         await interaction.response.send_message("No skull reactions recorded yet.", ephemeral=True)
         return
 
-    lines = []
+    entries = []
     for uid, stats in sorted(leaderboard.items(), key=lambda item: item[1]["skulls"] + item[1]["golds"], reverse=True):
-        user = await client.fetch_user(int(uid))
-        lines.append(f"{user.name}: {stats['skulls']} skulls, {stats['golds']} golden skulls")
+        member = interaction.guild.get_member(int(uid)) or await client.fetch_user(int(uid))
+        entries.append(f"{member.mention}: {stats['skulls']} skulls, {stats['golds']} golden skulls")
 
-    await interaction.response.send_message("**Skull Leaderboard:**\n" + "\n".join(lines), ephemeral=True)
+    await interaction.response.send_message("**Skull Leaderboard:**\n" + "\n".join(entries), ephemeral=True)
 
 # --- Get token at runtime ---
 def get_token():
